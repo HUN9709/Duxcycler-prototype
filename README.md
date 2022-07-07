@@ -18,8 +18,8 @@ Duxcycler prototype software for Real-Time multiplex PCR
 
 # TODO
 
-1. [ ] `./pcr/protocol` 에서 "load" 시 column이 shot인 line 인식
-    - protocol line time 이 >15sec 이어야 하는 logic 제거
+1. [x] `./pcr/protocol` 에서 "load" 시 ~~column이 shot인~~ label 이 "SHOT" 인 line 인식
+    - [x] protocol line time 이 >15sec 이어야 하는 logic 제거
 
 2. [ ] `./pcr/task.py` 의 `check_shot()` logic 수정
 

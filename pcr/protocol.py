@@ -1,6 +1,6 @@
 from email.policy import default
 import os
-import pcr.constants.constant as constant
+# import pcr.constants.constant as constant
 from ctypes import windll
 
 # Path definitions
@@ -21,7 +21,8 @@ class Protocol():
     Note:
         The parameter 'actions' must be shaped with multiple `dict` like this.
         [
-            {'Label' : 1, 'Temp' : 60, 'Time' : 5},
+            {'Label': 1, 'Temp': 60, 'Time': 5},
+            {'Label': 'SHOT', 'Temp': 0, 'Time': 0},
             {'Label' :'GOTO','Temp' : 2,'Time' : 1},
             ...
         ]
@@ -68,7 +69,7 @@ def list_protocols():
     return protocols
 
 def save_protocol(protocol):
-    path = os.path.join(PROTOCOL_PATH, protocol.name) # protocol path
+    path = os.path.join(PROTOCOL_PATH, f"{protocol.name}.txt") # protocol path
     try:
         actions = check_protocol(protocol)    # check protocol
     except PCRProtocolError as err:
@@ -86,8 +87,10 @@ def load_protocol(protocol_name):
     with open(path + ".txt", 'r') as file:   # open protocol file
         protocol_keys = ['Label', 'Temp', 'Time'] # protocol keys 
         lines = file.read().strip().split('\n')   # read text lines
+        
         # list to dict (text to actions)  
         actions = [dict(zip(protocol_keys, line.split('\t'))) for line in lines] 
+
         # check protocol and return protocol
         try:
             actions = check_protocol(actions)
@@ -96,8 +99,8 @@ def load_protocol(protocol_name):
             # If rasied error while loading Protocol..
             # Set default protocol...
             return default_protocol
-
-        return actions
+        
+        return Protocol(protocol_name, actions)
 
 
 def check_protocol(protocol):
@@ -114,22 +117,17 @@ def check_protocol(protocol):
         label, temp, time = list(map(lambda x : int(x) if type(x) is str and x.isdigit() else x, list(line.values())))
 
         
-        
         # check the label
-        if label == 'SHOT':
-            pass     # TODO : SHOT line check
-    
         if label == 'GOTO':     # GOTO action check
             if current_label != 0 and current_label >= temp: 
                 if not 1 <= time <= 100: 
                     raise PCRProtocolError(f"Invalid GOTO count(1~100), line {line_number}")
             else:
                 raise PCRProtocolError(f"Invalid GOTO target label, line {line_number}")
-
-        else: # If its not 'GOTO' label 
-            # Protocol 읽는 도중 time <= 15 일시 Protocol 읽지 않고 Error 처리
-            if time <= 15:
-                raise PCRProtocolError('Invalid protocol time : protocol time must be at least 15 seconds. line {line_number}')
+            
+        if label == 'SHOT':
+            if temp != 0 or time != 0:
+                raise PCRProtocolError(f"Invalid SHOT label (must be temp: 0, time: 0), line {line_number}")
             
 
         # Normal action check 
@@ -170,3 +168,7 @@ def saveRecentProtocolName(protocol_name=''):
         return protocol_name
     except FileNotFoundError as err:
         return
+    
+if __name__ == "__main__":
+    protocol = load_protocol("shot_test_protocol")
+    save_protocol(protocol)
