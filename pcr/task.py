@@ -4,8 +4,6 @@ import datetime
 import threading
 import logging
 
-import asyncio
-
 
 import cv2
 
@@ -54,6 +52,9 @@ class PCRTask:
         # State & command paramters
         self.state = State.READY
         self.command = Command.NOP
+        self.cur_loop = 0
+        self.pre_label = 0
+        self.cur_label = 0
 
         # PCR flags
         self.running = False
@@ -205,6 +206,25 @@ class PCRTask:
             else:
                 pass
 
+            if self.optic.shot_thread.shot_end:
+                """
+                    optic.shot_thread 에서 shot 이 끝났으면 Command.RESUME 전송
+                """
+                self.command = Command.RESUME
+
+        elif self.command == Command.RESUME:
+            """
+                이전 command 가 RESUME 일때 
+                이전 label 과 현재 label이 같다면 RESUME 전송
+                이전 label 과 현재 label이 다르면 NOP 전송
+            """
+            if self.pre_label == self.cur_label:
+                self.command = Command.RESUME
+            else:
+                self.optic.shot_thread.shot_end = False
+                self.command = Command.NOP
+                
+
         elif self.command == Command.TASK_WRITE:
             '''
                 읽어온 rx_buffer 가 정상일 때,  
@@ -257,22 +277,20 @@ class PCRTask:
 
     def check_shot(self):
         """
-            Shot이 가능한지 판단 후,
-            PCR protocol에서 다음 label이 'GOTO' 이고, 남은시간이 10sec 일때 shot
+            shot 이 가능한지 확인 하는 함수
         """
-        if self.state == State.RUN and not self.optic.shot_thread.shotting:
-            loop, action = RxAction.rx_buffer["Current_Loop"], RxAction.rx_buffer["Current_Action"]
-            target_temp = self.protocol[action-1]["Temp"]
-            next_label = self.protocol[action]["Label"]
+        if self.running and not self.optic.shot_thread.shotting:
+            if self.cur_label: # if not in preheating
+                # Get current action
+                self.cur_action = [action for action in self.protocol if action["Label"] == self.cur_label][0]
+                
+                # Start shot if encountered time is 0 in current action
+                if (self.cur_action["Time"] == 0 and
+                    not self.optic.shot_thread.shotting and
+                    not self.optic.shot_thread.shot_end):
 
-            if action != 0 and next_label == "GOTO":
-                left_time = RxAction.rx_buffer["Sec_TimeLeft"]
-
-                if left_time == 10:
-                    print(f"start shot!!!, {(0 if loop == 255 else self.cycle_num-loop)}")
-                    loop = 0 if loop == 255 else self.cycle_num-loop
                     fluor = self.mainUI.frame_ctrl.selected_fluor
-                    self.optic.shot(loop, fluor)
+                    self.optic.shot(self.cur_loop, fluor)
 
     def set_update_vals(self, fluor, values):
         self.update_vals.append((fluor, values))

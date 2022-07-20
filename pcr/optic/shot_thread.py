@@ -30,6 +30,7 @@ class ShotThread(threading.Thread):
 
         # Shotting flag
         self.shotting = False
+        self.shot_end = False
 
         # Shotting params
         self.cur_loop = None
@@ -88,7 +89,8 @@ class ShotThread(threading.Thread):
             except Exception as e:
                 print(f"{e}")
             
-        self.shotting=False
+        self.shotting = False
+        self.shot_end = True
         print("end shot!!!")
 
     def shot(self, loop, selected_fluors):

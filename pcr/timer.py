@@ -29,12 +29,21 @@ class PCRTimer(QTimer):
 
         self.cnt = 0
 
+        self.st = time.time()
+
     def read_buffer(self):
         raw_data = hid.read()
 
         if raw_data: 
             RxAction.set_buffer(raw_data) #Set info
-            self.task.state = RxAction.rx_buffer['State'] #Set state
+            self.task.state     = RxAction.rx_buffer["State"] # Set state
+            
+            # # Set current_loop
+            loop = RxAction.rx_buffer["Current_Loop"]
+            self.task.cur_loop  = 0 if loop == 255 else self.task.cycle_num - loop 
+            
+            self.task.pre_label = self.task.cur_label
+            self.task.cur_label = RxAction.rx_buffer["Current_Action"] # Set current_action
         else: #if get rx_buffer nothing
             pass
 
@@ -56,6 +65,9 @@ class PCRTimer(QTimer):
         
         elif command == Command.STOP:
             tx_buffer = TxAction.make_stop()
+
+        elif command == Command.RESUME:
+            tx_buffer = TxAction.make_resume()
 
         hid.write(tx_buffer)
 

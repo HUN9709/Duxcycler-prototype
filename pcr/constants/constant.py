@@ -8,8 +8,7 @@ class Command(IntEnum):
     STOP        = 0x04,
     PARAM_WRITE = 0x05,
     PARAM_END   = 0x06,
-    PAUSE       = 0x07,
-    CONTINUE    = 0x08,
+    RESUME      = 0x07,
     BOOTLOADER  = 0x55
 
 class State(IntEnum):

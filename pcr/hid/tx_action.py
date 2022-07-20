@@ -53,7 +53,7 @@ def make_taskEnd():
     return buffer
 
 def make_go():
-    """Return Go buffer"""
+    """Return GO buffer"""
     buffer = create_string_buffer(TX_BUFSIZE)
     buffer[TX_CMD] = Command.GO
     return buffer
@@ -82,4 +82,10 @@ def make_requestLine(request_line):
     """
     buffer = create_string_buffer(TX_BUFSIZE)
     buffer[TX_REQLINE] = request_line
+    return buffer
+
+def make_resume():
+    """Return RESUME buffer"""
+    buffer = create_string_buffer(TX_BUFSIZE)
+    buffer[TX_CMD] = Command.RESUME
     return buffer

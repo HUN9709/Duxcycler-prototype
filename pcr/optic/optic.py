@@ -33,6 +33,6 @@ class PCROptic():
         pass
 
     def close(self):
-        del self.arduino_serial
+        # del self.arduino_serial
         del self.file_manager
         self.shot_thread.close()
