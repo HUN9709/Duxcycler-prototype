@@ -27,15 +27,13 @@ class PCRTimer(QTimer):
         self.setInterval(TIMER_DURATION)
         self.timeout.connect(self.run)
 
-        self.cnt = 0
-
-        self.st = time.time()
-
     def read_buffer(self):
         raw_data = hid.read()
 
         if raw_data: 
             RxAction.set_buffer(raw_data) #Set info
+            self.task.rx_buffer = RxAction.rx_buffer
+            
             self.task.state     = RxAction.rx_buffer["State"] # Set state
             
             # # Set current_loop

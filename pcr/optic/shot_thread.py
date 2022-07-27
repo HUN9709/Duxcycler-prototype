@@ -34,6 +34,7 @@ class ShotThread(threading.Thread):
 
         # Shotting params
         self.cur_loop = None
+        self.cur_label = None
         self.target_flours = None
 
     def run(self):
@@ -75,15 +76,15 @@ class ShotThread(threading.Thread):
             # Save img
             try:
                 if self.cur_loop == None:
-                    self.file_manager.save_test_img(img, flour)
+                    self.file_manager.save_test_img(img, flour, self.cur_label)
                 else:
-                    self.file_manager.save_img(img, flour, self.cur_loop)
+                    self.file_manager.save_img(img, flour, self.cur_loop, self.cur_label)
 
                     values = tubes_intensity(flour, img)
-                    self.file_manager.xlsx.record_values(flour, values, self.cur_loop)
+                    self.file_manager.xlsx.record_values(flour, values, self.cur_loop, self.cur_label)
                     # self.main_ui.frame_graph.update_values(flour, values)
                     # self.main_ui.frame_img.display_values(flour, values)
-                    self.task.set_update_vals(flour, values)
+                    self.task.set_update_vals(self.cur_label, flour, values)
                     
             
             except Exception as e:
@@ -91,11 +92,11 @@ class ShotThread(threading.Thread):
             
         self.shotting = False
         self.shot_end = True
-        print("end shot!!!")
 
-    def shot(self, loop, selected_fluors):
+    def shot(self, loop, label, selected_fluors):
         if not self.shotting:
             self.cur_loop = loop
+            self.cur_label = label
             self.target_flours = [FLUORESCENCES[ind] for ind, is_sel in enumerate(selected_fluors) if is_sel]
             self.shotting = True
             self.shot_event.set()

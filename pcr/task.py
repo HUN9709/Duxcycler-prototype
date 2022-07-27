@@ -52,9 +52,14 @@ class PCRTask:
         # State & command paramters
         self.state = State.READY
         self.command = Command.NOP
+        self.shot_finished = False
+        
+        self.rx_buffer = None
         self.cur_loop = 0
         self.pre_label = 0
         self.cur_label = 0
+        self.chamber_temp = 0
+        self.heater_temp = 0
 
         # PCR flags
         self.running = False
@@ -104,7 +109,7 @@ class PCRTask:
 
         # Get selected fluor & create path and *.xlsx
         sel_fluors = [FLUORESCENCES[ind] for ind, is_sel in enumerate(self.mainUI.frame_ctrl.selected_fluor) if is_sel]
-        self.file_manager.start_task(self.expt_name, sel_fluors)
+        self.file_manager.start_task(self.expt_name, sel_fluors, self.protocol.shot_labels)
 
         # mainUI's mainUI
         self.mainUI.running_event()
@@ -175,7 +180,6 @@ class PCRTask:
             State(Constant.State) 기반으로 작성되었으나,
             logic error 와 code 가독성을 위해 "이전 커맨드" 기반으로 변경하였음.
         """
-        self.rx_action = RxAction.rx_buffer
 
         if self.command == Command.NOP:
             # TODO : UI Update
@@ -215,14 +219,10 @@ class PCRTask:
         elif self.command == Command.RESUME:
             """
                 이전 command 가 RESUME 일때 
-                이전 label 과 현재 label이 같다면 RESUME 전송
-                이전 label 과 현재 label이 다르면 NOP 전송
             """
-            if self.pre_label == self.cur_label:
-                self.command = Command.RESUME
-            else:
-                self.optic.shot_thread.shot_end = False
-                self.command = Command.NOP
+            self.command = Command.NOP
+            self.optic.shot_thread.shot_end = False
+            self.shot_finished = True
                 
 
         elif self.command == Command.TASK_WRITE:
@@ -257,10 +257,10 @@ class PCRTask:
         """
             Chamber와 LID heater 온도 계산 후 MainUI에 Display 해주는 함수
         """
-        chamber_temp = RxAction.rx_buffer['Chamber_TempH'] + RxAction.rx_buffer['Chamber_TempL'] * 0.1
-        heater_temp = RxAction.rx_buffer['Cover_TempH'] + RxAction.rx_buffer['Cover_TempL'] * 0.1
+        self.chamber_temp = RxAction.rx_buffer['Chamber_TempH'] + RxAction.rx_buffer['Chamber_TempL'] * 0.1
+        self.heater_temp = RxAction.rx_buffer['Cover_TempH'] + RxAction.rx_buffer['Cover_TempL'] * 0.1
 
-        self.mainUI.frame_ctrl.temp(chamber_temp)
+        self.mainUI.frame_ctrl.temp(self.chamber_temp)
 
     def line_task(self):
         if self.state == State.RUN:
@@ -279,20 +279,25 @@ class PCRTask:
         """
             shot 이 가능한지 확인 하는 함수
         """
-        if self.running and not self.optic.shot_thread.shotting:
-            if self.cur_label: # if not in preheating
-                # Get current action
-                self.cur_action = [action for action in self.protocol if action["Label"] == self.cur_label][0]
+        if self.shot_finished:
+            if self.cur_label != self.pre_label:
+                self.shot_finished = False
+        
+        if (self.running
+            and not self.shot_finished
+            and not self.optic.shot_thread.shot_end):
+
+            if self.cur_label in self.protocol.shot_labels: # If current label is shot label
+                self.cur_action = self.protocol.get_label_action(self.cur_label)
+                target_temp = self.cur_action["Temp"]
                 
-                # Start shot if encountered time is 0 in current action
-                if (self.cur_action["Time"] == 0 and
-                    not self.optic.shot_thread.shotting and
-                    not self.optic.shot_thread.shot_end):
-
+                if (self.cur_action["Time"] == 0
+                    and not self.optic.shot_thread.shotting
+                    and target_temp-0.3 <= self.chamber_temp <= target_temp+0.3):
                     fluor = self.mainUI.frame_ctrl.selected_fluor
-                    self.optic.shot(self.cur_loop, fluor)
+                    self.optic.shot(self.cur_loop, self.cur_label, fluor)
 
-    def set_update_vals(self, fluor, values):
+    def set_update_vals(self, label, fluor, values):
         self.update_vals.append((fluor, values))
 
     '''

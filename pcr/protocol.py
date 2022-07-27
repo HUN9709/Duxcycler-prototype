@@ -30,6 +30,13 @@ class Protocol():
     def __init__(self, name, actions):
         self.name = name
         self.actions = actions
+        self.shot_labels = []
+        
+        for action in self.actions:
+            if action["Time"] == 0:
+                self.shot_labels.append(action["Label"])
+                
+        print(self.shot_labels)
 
     def __getitem__(self, idx):
         return self.actions[idx]
@@ -42,6 +49,14 @@ class Protocol():
 
     def __len__(self):
         return len(self.actions)
+    
+    def get_label_action(self, label):
+        for action in self.actions:
+            if action["Label"] == label:
+                return action
+        else:
+            return action
+        
 
 # Default pcr protocol actions
 default_protocol = Protocol('Default', [
@@ -104,47 +119,50 @@ def load_protocol(protocol_name):
 
 
 def check_protocol(protocol):
-    line_number = 0
-    current_label = 1
+    line_number = 0     # For debugging message
+    current_label = 0   # For check normal actions
+    found_goto = False  # For check multiple 'GOTO' labels
     actions = []
 
     # Check Protocol (save & load)
     for line in protocol:
         line_number += 1
 
-        # unpacking action to (label, temp, time)
-        # Check the line
-        label, temp, time = list(map(lambda x : int(x) if type(x) is str and x.isdigit() else x, list(line.values())))
-
+        try:
+            # unpacking action to (label, temp, time)
+            label, temp, time = list(map(lambda x : int(x) if type(x) is str and x.lstrip('-').isdecimal() else x, list(line.values())))
+        except Exception as err:
+            raise PCRProtocolError(f"Invalid protocol data, line {line_number}")
         
-        # check the label
-        if label == 'GOTO':     # GOTO action check
-            if current_label != 0 and current_label >= temp: 
-                if not 1 <= time <= 100: 
-                    raise PCRProtocolError(f"Invalid GOTO count(1~100), line {line_number}")
-            else:
-                raise PCRProtocolError(f"Invalid GOTO target label, line {line_number}")
-            
-        if label == 'SHOT':
-            if temp != 0 or time != 0:
-                raise PCRProtocolError(f"Invalid SHOT label (must be temp: 0, time: 0), line {line_number}")
-            
-
-        # Normal action check 
-        if type(label) is int:
-            # protocol data can not be splited into label, temp, time.
-            if len(line) != 3:
-                print('Invalid protocol data, line %d' %line_number)
-                break
-            # label value is incorrect.
-            if label != current_label:
-                print('Invalid label value, line %d' %line_number)
-                break
+        # Check the line
+        if type(label) is int: # Check normal label
             current_label += 1
-
-        # do not enter into this block
+            
+            if label != current_label:
+                raise PCRProtocolError(f"Invalid label number, line {line_number}")
+            
+            if not 10 <= temp <= 105:
+                raise PCRProtocolError(f"Invalid temperature value (Temp must be 10~105), line {line_number}")
+            
+            if not 0 <= time <= 65000:
+                raise PCRProtocolError(f"Invalid time value (Time must be 0(shot)~105), line {line_number}")
+        
+        elif label == 'GOTO': # Check GOTO label
+            if found_goto:
+                raise PCRProtocolError(f"Invalid GOTO label ('GOTO' label is cannot use multiple), line {line_number}")
+            else:   found_goto = True
+            
+            if not current_label:
+                raise PCRProtocolError(f"Invalid GOTO label ('GOTO' label is cannot first line), line {line_number}")
+            
+            if not 1 <= time <= 100:
+                raise PCRProtocolError(f"Invalid GOTO count(1~100), line {line_number}")
+            
+        elif label == 'SHOT': # Check SHOT label
+            raise PCRProtocolError(f"Invalid label ('SHOT' label is being implemented), line {line_number}")
+        
         else:
-            pass
+            raise PCRProtocolError(f"Invalid label, line {line_number}")
         
         actions.append({'Label' : label, 'Temp' : temp, 'Time' : time})
     return actions

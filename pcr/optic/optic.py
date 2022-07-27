@@ -23,8 +23,8 @@ class PCROptic():
         self.shot_thread.start()
 
 
-    def shot(self, loop, selected_fluors):
-        self.shot_thread.shot(loop, selected_fluors)
+    def shot(self, loop, label, selected_fluors):
+        self.shot_thread.shot(loop, label, selected_fluors)
 
     def chamber_take_out(self):
         pass
